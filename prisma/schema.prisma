@@ -1,0 +1,334 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  SUPER_ADMIN
+  PETUGAS
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  nama          String
+  nip           String?   @unique
+  role          UserRole  @default(PETUGAS)
+  jabatan       String?
+  unitKerja     String?
+  noTelp        String?
+  foto          String?
+  isActive      Boolean   @default(true)
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relations
+  patients      Patient[]
+  assessments   MedicalAssessment[]
+  environments  EnvironmentAssessment[]
+  needs         NeedsIdentification[]
+
+  @@map("users")
+}
+
+// ============================================
+// PATIENT DATA
+// ============================================
+
+enum JenisKelamin {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
+enum KelompokUsia {
+  BALITA        // 1-5 Tahun
+  ANAK          // 5-17 Tahun
+  DEWASA        // 17-59 Tahun
+  LANSIA        // >60 Tahun
+  IBU_HAMIL
+}
+
+enum Agama {
+  ISLAM
+  KRISTEN
+  KATOLIK
+  HINDU
+  BUDDHA
+  KONGHUCU
+  LAINNYA
+}
+
+model Patient {
+  id              String        @id @default(uuid())
+  nama            String
+  nik             String?        @unique
+  jenisKelamin    JenisKelamin
+  tempatLahir     String
+  tanggalLahir    DateTime
+  alamat          String
+  rt              String?
+  rw              String?
+  kelurahan       String?
+  kecamatan       String?
+  kabupaten       String?
+  provinsi        String?
+  agama           Agama?
+  pekerjaan       String?
+  noTelp          String?
+  kelompokUsia    KelompokUsia
+  usiaKehamilan   Int?          // Minggu, khusus untuk ibu hamil
+  
+  createdBy       String
+  createdByUser   User          @relation(fields: [createdBy], references: [id])
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  assessments     MedicalAssessment[]
+  environments    EnvironmentAssessment[]
+  needs           NeedsIdentification[]
+
+  @@map("patients")
+}
+
+// ============================================
+// MEDICAL ASSESSMENT
+// ============================================
+
+enum AnamnesisType {
+  AUTO_ANAMNESIS
+  ALLO_ANAMNESIS
+}
+
+enum PemeriksaanPenunjang {
+  LAB
+  RONTGEN
+  CT_SCAN
+  LAIN_LAIN
+  TIDAK_ADA
+}
+
+enum TindakLanjut {
+  PULANG
+  RUJUK
+  TIDAK_RUJUK
+}
+
+enum KIEPenerima {
+  PASIEN
+  KELUARGA_PASIEN
+}
+
+enum KeadaanUmum {
+  BAIK
+  SEDANG
+  BURUK
+}
+
+model MedicalAssessment {
+  id                    String              @id @default(uuid())
+  patientId             String
+  patient               Patient             @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Tanggal dan Jam Kunjungan
+  tanggalKunjungan      DateTime
+  jamKunjungan          String
+  anamnesisType         AnamnesisType
+  
+  // SUBJEKTIF
+  keluhanUtama          String
+  riwayatPenyakitSekarang String?
+  riwayatAlergi         String?
+  riwayatPenyakitTerdahulu String?
+  riwayatPenggunaanObat String?
+  
+  // OBJEKTIF - GCS
+  gcsEye                Int                 @default(4)  // 1-4
+  gcsVerbal             Int                 @default(5)  // 1-5
+  gcsMotoric            Int                 @default(6)  // 1-6
+  keadaanUmum           KeadaanUmum         @default(BAIK)
+  
+  // TTV (Tanda-Tanda Vital)
+  tekananDarahSistolik  Int?
+  tekananDarahDiastolik Int?
+  suhu                  Float?              // Celcius
+  nadi                  Int?                // per menit
+  respirasi             Int?                // per menit
+  beratBadan            Float?              // kg
+  tinggiBadan           Float?              // cm
+  
+  // Pemeriksaan Fisik
+  kepala                String?
+  mata                  String?
+  mulut                 String?
+  leher                 String?
+  thorax                String?
+  cor                   String?
+  pulmo                 String?
+  abdomen               String?
+  ekstremitas           String?
+  anusGenitalia         String?
+  
+  // Pemeriksaan Penunjang
+  pemeriksaanPenunjang  PemeriksaanPenunjang @default(TIDAK_ADA)
+  hasilPenunjang        String?
+  
+  // Diagnosa & Penatalaksanaan
+  diagnosaKerja         String
+  penatalaksanaan       String?
+  
+  // Tindak Lanjut
+  tindakLanjut          TindakLanjut        @default(PULANG)
+  rujukKe               String?
+  alasanRujuk           String?
+  
+  // KIE
+  kiePenerima           KIEPenerima         @default(PASIEN)
+  kieKeterangan         String?
+  
+  // Dokter
+  dokterPemeriksa       String
+  
+  // Meta
+  createdBy             String
+  createdByUser         User                @relation(fields: [createdBy], references: [id])
+  createdAt             DateTime            @default(now())
+  updatedAt             DateTime            @updatedAt
+
+  @@map("medical_assessments")
+}
+
+// ============================================
+// ENVIRONMENT ASSESSMENT
+// ============================================
+
+enum AksesAirBersih {
+  ADA
+  TIDAK_ADA
+}
+
+enum KondisiSanitasi {
+  BAIK
+  BURUK
+}
+
+model EnvironmentAssessment {
+  id                    String            @id @default(uuid())
+  patientId             String
+  patient               Patient           @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  aksesAirBersih        AksesAirBersih
+  kondisiSanitasi       KondisiSanitasi
+  fotoTempatTinggal     String[]          // Array of photo URLs
+  catatanLingkungan     String?
+  
+  createdBy             String
+  createdByUser         User              @relation(fields: [createdBy], references: [id])
+  createdAt             DateTime          @default(now())
+  updatedAt             DateTime          @updatedAt
+
+  @@map("environment_assessments")
+}
+
+// ============================================
+// NEEDS IDENTIFICATION
+// ============================================
+
+enum PrioritasKebutuhan {
+  RENDAH
+  SEDANG
+  TINGGI
+  KRITIS
+}
+
+model NeedsIdentification {
+  id                        String               @id @default(cuid())
+  patientId                 String
+  patient                   Patient              @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  // Kebutuhan (stored as arrays)
+  obatObatan                String[]             @default([])
+  alatKesehatan             String[]             @default([])
+  infrastruktur             String[]             @default([])
+  
+  // Prioritas untuk setiap kategori
+  prioritasObat             PrioritasKebutuhan   @default(SEDANG)
+  prioritasAlat             PrioritasKebutuhan   @default(SEDANG)
+  prioritasInfrastruktur    PrioritasKebutuhan   @default(SEDANG)
+  
+  // Keterangan tambahan
+  keterangan                String?              @db.Text
+  
+  // Audit fields
+  createdBy                 String
+  createdByUser             User                 @relation(fields: [createdBy], references: [id])
+  createdAt                 DateTime             @default(now())
+  updatedAt                 DateTime             @updatedAt
+
+  @@index([patientId])
+  @@index([createdBy])
+  @@index([prioritasObat])
+  @@index([prioritasAlat])
+  @@index([prioritasInfrastruktur])
+  @@map("needs_identifications")
+}
+
+
+// ============================================
+// DISASTER EVENT
+// ============================================
+
+enum JenisBencana {
+  GEMPA_BUMI
+  TSUNAMI
+  BANJIR
+  TANAH_LONGSOR
+  GUNUNG_MELETUS
+  KEBAKARAN
+  ANGIN_TOPAN
+  KEKERINGAN
+  EPIDEMI
+  LAINNYA
+}
+
+model DisasterEvent {
+  id              String        @id @default(uuid())
+  namaBencana     String
+  jenisBencana    JenisBencana
+  tanggalKejadian DateTime
+  lokasi          String
+  provinsi        String
+  kabupaten       String
+  kecamatan       String?
+  deskripsi       String?
+  status          String        @default("AKTIF") // AKTIF, SELESAI
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("disaster_events")
+}
+
+// ============================================
+// AUDIT LOG
+// ============================================
+
+model AuditLog {
+  id          String   @id @default(uuid())
+  userId      String
+  action      String
+  entity      String
+  entityId    String?
+  oldData     Json?
+  newData     Json?
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("audit_logs")
+}
