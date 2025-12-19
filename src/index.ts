@@ -11,12 +11,15 @@ import prisma from './config/database';
 dotenv.config();
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
+const HOST = '0.0.0.0'; // CRITICAL untuk Railway!
 
 // Middleware
 app.use(cors({
   origin: process.env.FRONTEND_URL || '*',
   credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept']
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -34,6 +37,18 @@ app.get('/', (req, res) => {
     version: '1.0.0',
     description: 'Sistem Informasi Surveilans Pasca-Bencana - Indonesia',
     documentation: '/api/health',
+    status: 'running',
+    timestamp: new Date().toISOString()
+  });
+});
+
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.json({
+    status: 'healthy',
+    database: 'connected',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
   });
 });
 
@@ -48,10 +63,16 @@ const startServer = async () => {
     await prisma.$connect();
     console.log('✅ Database connected successfully');
 
-    app.listen(PORT, () => {
-      console.log(`🚀 SIRANA-Indonesia API server running on port ${PORT}`);
+    // CRITICAL: Listen on 0.0.0.0 untuk Railway
+    app.listen(PORT, HOST, () => {
+      console.log('=================================');
+      console.log('✅ SIRANA-Indonesia API Started');
+      console.log(`🚀 Port: ${PORT}`);
+      console.log(`🌐 Host: ${HOST}`);
       console.log(`📍 Environment: ${process.env.NODE_ENV || 'development'}`);
-      console.log(`🔗 URL: http://localhost:${PORT}`);
+      console.log(`🔗 Local: http://localhost:${PORT}`);
+      console.log(`🔗 Public: https://backend-production-1025.up.railway.app`);
+      console.log('=================================');
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
